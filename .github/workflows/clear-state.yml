@@ -1,0 +1,120 @@
+name: Clear TikTok State Database
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Username to clear (or "all" to delete entire database)'
+        required: true
+        type: string
+
+jobs:
+  clear-state:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Restore state database
+        uses: actions/cache/restore@v4
+        with:
+          path: tiktok_state.db
+          key: tiktok-state-clear-${{ github.run_id }}
+          restore-keys: |
+            tiktok-state-
+      
+      - name: Check if database exists
+        id: check_db
+        run: |
+          if [ -f tiktok_state.db ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Database found"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No database found - nothing to clear"
+          fi
+      
+      - name: Clear database state
+        if: steps.check_db.outputs.exists == 'true'
+        run: |
+          TARGET="${{ github.event.inputs.target }}"
+          
+          if [ "$TARGET" = "all" ]; then
+            echo "🗑️ Clearing ALL state - deleting database..."
+            rm -f tiktok_state.db
+            echo "✓ Database deleted completely"
+            echo "summary=🗑️ **Database cleared**: Deleted entire database" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🗑️ Clearing state for user: @$TARGET"
+            
+            # Count posts before deletion
+            BEFORE=$(sqlite3 tiktok_state.db "SELECT COUNT(*) FROM processed_posts WHERE author = '$TARGET';")
+            echo "Found $BEFORE posts for @$TARGET"
+            
+            # Delete posts
+            sqlite3 tiktok_state.db "DELETE FROM processed_posts WHERE author = '$TARGET';"
+            
+            # Count posts after deletion
+            AFTER=$(sqlite3 tiktok_state.db "SELECT COUNT(*) FROM processed_posts WHERE author = '$TARGET';")
+            DELETED=$((BEFORE - AFTER))
+            
+            echo "✓ Deleted $DELETED posts for @$TARGET"
+            echo "summary=🗑️ **Database cleared**: Deleted $DELETED posts for @$TARGET" >> $GITHUB_STEP_SUMMARY
+            
+            # Show remaining posts count
+            TOTAL=$(sqlite3 tiktok_state.db "SELECT COUNT(*) FROM processed_posts;")
+            echo "📊 Total posts remaining in database: $TOTAL"
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Save updated database
+        uses: actions/cache/save@v4
+        if: steps.check_db.outputs.exists == 'true'
+        with:
+          path: tiktok_state.db
+          key: tiktok-state-${{ github.run_id }}
+      
+      - name: Summary
+        run: |
+          echo "## Clear Database Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_db.outputs.exists }}" = "true" ]; then
+            if [ "${{ github.event.inputs.target }}" = "all" ]; then
+              echo "✅ Entire database has been deleted" >> $GITHUB_STEP_SUMMARY
+              echo "Next monitor run will start with fresh state" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ Cleared state for @${{ github.event.inputs.target }}" >> $GITHUB_STEP_SUMMARY
+              echo "Videos from this user will be reprocessed on next monitor run" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⚠️ No database found - nothing was cleared" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Notify on Slack
+        if: steps.check_db.outputs.exists == 'true'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            if [ "${{ github.event.inputs.target }}" = "all" ]; then
+              MESSAGE="🗑️ *Database Cleared*\n\nEntire TikTok state database has been deleted.\nNext monitor run will start fresh."
+            else
+              MESSAGE="🗑️ *Database Cleared*\n\nCleared state for @${{ github.event.inputs.target }}\nVideos will be reprocessed on next monitor run."
+            fi
+            
+            curl -X POST "$SLACK_WEBHOOK_URL" \
+              -H 'Content-Type: application/json' \
+              -d "{
+                \"text\": \"Database cleared\",
+                \"blocks\": [
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"$MESSAGE\"
+                    }
+                  }
+                ]
+              }"
+          fi
