@@ -1,0 +1,107 @@
+name: Monitor TikTok Accounts
+
+on:
+  # Run every 30 minutes
+  schedule:
+    - cron: '*/30 * * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+  
+  # Run on push for testing
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/monitor-tiktok.yml'
+      - 'main.py'
+      - '**.py'
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Restore state database
+        uses: actions/cache/restore@v4
+        with:
+          path: tiktok_state.db
+          key: tiktok-state-${{ github.run_id }}
+          restore-keys: |
+            tiktok-state-
+      
+      - name: Run TikTok monitor
+        env:
+          # Apify Configuration
+          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+          
+          # Google Sheets Configuration
+          GOOGLE_SHEET_URL: ${{ secrets.GOOGLE_SHEET_URL }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          
+          # Google Drive Configuration
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          
+          # Slack Configuration (use webhook OR bot token + channel)
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          
+          # Optional: Fallback monitored accounts (comma-separated)
+          MONITORED_ACCOUNTS: ${{ secrets.MONITORED_ACCOUNTS }}
+          
+          # State Store Configuration
+          STATE_DB_PATH: tiktok_state.db
+        run: |
+          python main.py
+      
+      - name: Save state database
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: tiktok_state.db
+          key: tiktok-state-${{ github.run_id }}
+      
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: monitor-logs-${{ github.run_number }}
+          path: tiktok_monitor.log
+          retention-days: 7
+      
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST "$SLACK_WEBHOOK_URL" \
+              -H 'Content-Type: application/json' \
+              -d '{
+                "text": "⚠️ TikTok Monitor workflow failed",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "*TikTok Monitor Alert*\n\nWorkflow failed. Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  }
+                ]
+              }'
+          fi
