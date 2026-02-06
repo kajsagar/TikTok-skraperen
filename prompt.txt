@@ -7,7 +7,7 @@ Goal:
 - Upload the video to COMPANY_STORAGE and share the internal link in Slack.
 - Idempotent: never process the same post twice.
 
-Inputs:
+Inputs (urls and tokens stored in .env file):
 - MONITORED_ACCOUNTS use google sheet
 - POLL_INTERVAL_MINUTES
 - SLACK_WEBHOOK_URL or SLACK_BOT_TOKEN + CHANNEL_ID
@@ -15,7 +15,7 @@ Inputs:
 - COMPANY_STORAGE (Google Drive) credentials and folder/bucket path
 
 Workflow:
-1) Poll latest posts for each account via https://apify.com/igview-owner/tiktok-story-viewer
+1) Poll latest posts using GitHub Actions for each account via https://apify.com/igview-owner/tiktok-story-viewer
 2) For each unseen post:
    a) Fetch metadata: post_id, url, author, published_at, caption, hashtags
    b) Fetch transcript/captions if available
