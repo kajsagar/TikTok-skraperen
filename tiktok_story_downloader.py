@@ -8,9 +8,13 @@ import os
 import requests
 import json
 from apify_client import ApifyClient
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configuration
-APIFY_API_TOKEN = ""  # Replace with your Apify API token
+APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")  # Load from .env file
 DOWNLOAD_DIR = "tiktok_stories"  # Directory to save downloaded stories
 
 
@@ -29,7 +33,7 @@ def fetch_tiktok_stories(username, apify_token=APIFY_API_TOKEN):
     
     # Prepare the Actor input
     run_input = {
-        "usernames": [username],
+        "uniqueIds": [username],
     }
     
     print(f"Fetching stories for @{username}...")
@@ -133,15 +137,11 @@ def download_user_stories(username, apify_token=APIFY_API_TOKEN, download_dir=DO
 def main():
     """Main function with example usage"""
     # Example: Download stories from multiple users
-    usernames = [
-        "danieljensen",  # Replace with actual TikTok username
-        # "username2",
-        # Add more usernames as needed
-    ]
+    usernames = ["danieljensen"]
     
     # Check if API token is set
-    if APIFY_API_TOKEN == "YOUR_APIFY_API_TOKEN":
-        print("ERROR: Please set your Apify API token in the script")
+    if not APIFY_API_TOKEN:
+        print("ERROR: Please set APIFY_API_TOKEN in your .env file")
         print("Get your token from: https://console.apify.com/account/integrations")
         return
     
