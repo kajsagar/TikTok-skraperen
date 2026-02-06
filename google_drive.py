@@ -114,7 +114,8 @@ class GoogleDriveUploader:
             file = self._service.files().create(
                 body=file_metadata,
                 media_body=media,
-                fields='id, webViewLink, webContentLink'
+                fields='id, webViewLink, webContentLink',
+                supportsAllDrives=True
             ).execute()
             
             file_id = file.get('id')
@@ -125,7 +126,8 @@ class GoogleDriveUploader:
                 body={
                     'type': 'anyone',
                     'role': 'reader'
-                }
+                },
+                supportsAllDrives=True
             ).execute()
             
             # Get shareable link
