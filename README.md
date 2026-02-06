@@ -5,7 +5,7 @@ Automated TikTok monitoring system that detects new videos from monitored accoun
 ## Features
 
 ✅ **Automatic Monitoring**: Polls TikTok accounts for new videos via GitHub Actions  
-✅ **Idempotent Processing**: Never processes the same post twice using SQLite state store  
+✅ **Avoids duplicates**: Never processes the same post twice using SQLite state store  
 ✅ **Google Sheets Integration**: Manage monitored accounts from a spreadsheet  
 ✅ **Google Drive Storage**: Uploads videos to company Google Drive  
 ✅ **Slack Notifications**: Rich formatted alerts with video details  
