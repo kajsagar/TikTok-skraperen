@@ -71,7 +71,7 @@ class GoogleSheetsMonitor:
         |----------|-------|---------|
         | user1    | ...   | TRUE    |
         | user2    | ...   | FALSE   |
-        
+
         Returns:
             List of account dictionaries with 'username' and 'enabled' keys
         """
@@ -96,7 +96,7 @@ class GoogleSheetsMonitor:
                 username = record.get('Username', '').strip()
                 enabled = str(record.get('Enabled', 'TRUE')).upper() == 'TRUE'
                 notes = record.get('Notes', '')
-                
+
                 if username and enabled:
                     accounts.append({
                         'username': username,
@@ -124,7 +124,7 @@ class GoogleSheetsMonitor:
             return [{'username': u, 'notes': ''} for u in usernames]
         
         # Default fallback
-        return [{'username': 'danieljensen', 'notes': 'Default account'}]
+        return [{'username': 'warnerbros', 'notes': 'Default account'}]
 
 
 def main():

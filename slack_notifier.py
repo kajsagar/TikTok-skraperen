@@ -58,7 +58,7 @@ class SlackNotifier:
             tiktok_url=tiktok_url,
             storage_url=storage_url
         )
-        
+
         # Send via webhook or bot token
         if self.webhook_url:
             return self._send_webhook(message)
@@ -119,7 +119,7 @@ class SlackNotifier:
                     "text": f"*Caption:*\n{caption}"
                 }
             })
-        
+
         # Add transcript
         blocks.append({
             "type": "section",
@@ -128,15 +128,15 @@ class SlackNotifier:
                 "text": f"*Transcript:*\n{transcript_text}"
             }
         })
-        
+
         # Add URLs section
         url_text = f"*TikTok:* <{tiktok_url}|View on TikTok>\n"
-        
+
         if storage_url:
             url_text += f"*Internal video:* <{storage_url}|View on Google Drive>"
         else:
             url_text += "*Internal video:* Video download not permitted; sharing TikTok link instead."
-        
+
         blocks.append({
             "type": "section",
             "text": {
@@ -144,19 +144,19 @@ class SlackNotifier:
                 "text": url_text
             }
         })
-        
+
         # Add divider
         blocks.append({"type": "divider"})
-        
+
         return {
             "blocks": blocks,
             "text": f"New TikTok video from @{author}"  # Fallback text
         }
-    
+
     def _send_webhook(self, message: Dict) -> bool:
         """
         Send message via Slack webhook
-        
+
         Args:
             message: Formatted message payload
             
@@ -176,7 +176,7 @@ class SlackNotifier:
             else:
                 print(f"✗ Slack webhook failed: {response.status_code} - {response.text}")
                 return False
-                
+
         except Exception as e:
             print(f"✗ Error sending Slack webhook: {e}")
             return False
@@ -193,12 +193,12 @@ class SlackNotifier:
         """
         try:
             url = "https://slack.com/api/chat.postMessage"
-            
+
             payload = {
                 "channel": self.channel_id,
                 **message
             }
-            
+
             response = requests.post(
                 url,
                 json=payload,
@@ -207,16 +207,16 @@ class SlackNotifier:
                     'Authorization': f'Bearer {self.bot_token}'
                 }
             )
-            
+
             result = response.json()
-            
+
             if result.get('ok'):
                 print("✓ Slack notification sent via bot")
                 return True
             else:
                 print(f"✗ Slack bot failed: {result.get('error')}")
                 return False
-                
+
         except Exception as e:
             print(f"✗ Error sending Slack message: {e}")
             return False
@@ -241,14 +241,14 @@ def main():
     
     # Send test notification
     success = notifier.send_new_video_alert(
-        author="danieljensen",
+        author="warnerbros",
         published_at="2026-02-06T10:30:00Z",
         caption="Check out this amazing content! #fyp #viral",
         transcript="This is a sample transcript of the video content...",
-        tiktok_url="https://www.tiktok.com/@danieljensen/video/1234567890",
+        tiktok_url="https://www.tiktok.com/@warnerbros/video/1234567890",
         storage_url="https://drive.google.com/file/d/sample123/view"
     )
-    
+
     print(f"Test notification {'succeeded' if success else 'failed'}")
 
 

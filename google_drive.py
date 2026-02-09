@@ -193,11 +193,11 @@ def main():
         return
     
     # Test with a sample file
-    test_file = "tiktok_stories/danieljensen/sample.mp4"
+    test_file = "tiktok_stories/warnerbros/sample.mp4"
     if os.path.exists(test_file):
         url = uploader.upload_story(
             file_path=test_file,
-            username="danieljensen",
+            username="warnerbros",
             story_id="test123",
             caption="Test upload"
         )

@@ -36,4 +36,4 @@ Slack formatting:
 - Internal video: {storage_url if exists}
 
 
-example url : https://www.tiktok.com/@danieljensen
+example url : https://www.tiktok.com/@warnerbros

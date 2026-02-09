@@ -4,13 +4,13 @@ Automated TikTok monitoring system that detects new videos from monitored accoun
 
 ## Features
 
-✅ **Automatic Monitoring**: Polls TikTok accounts for new videos via GitHub Actions  
-✅ **Avoids duplicates**: Never processes the same post twice using SQLite state store  
-✅ **Google Sheets Integration**: Manage monitored accounts from a spreadsheet  
-✅ **Google Drive Storage**: Uploads videos to company Google Drive  
-✅ **Slack Notifications**: Rich formatted alerts with video details  
-✅ **Environment-Aware**: Uses GitHub Secrets in CI, `.env` for local development  
-✅ **Comprehensive Logging**: Structured logs for observability  
+✅ **Automatic Monitoring**: Polls TikTok accounts for new videos via GitHub Actions
+✅ **Avoids duplicates**: Never processes the same post twice using SQLite state store
+✅ **Google Sheets Integration**: Manage monitored accounts from a spreadsheet
+✅ **Google Drive Storage**: Uploads videos to company Google Drive
+✅ **Slack Notifications**: Rich formatted alerts with video details
+✅ **Environment-Aware**: Uses GitHub Secrets in CI, `.env` for local development
+✅ **Comprehensive Logging**: Structured logs for observability
 
 ## Architecture
 
@@ -107,7 +107,7 @@ Create a sheet with these columns:
 
 | Username | Notes | Enabled |
 |----------|-------|---------|
-| danieljensen | Tech content | TRUE |
+| warnerbros | Tech content | TRUE |
 | hbomax | HBO content | TRUE |
 | example_user | Testing | FALSE |
 
