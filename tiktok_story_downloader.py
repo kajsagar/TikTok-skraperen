@@ -15,7 +15,7 @@ load_dotenv()
 
 # Configuration
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")  # Load from .env file
-DOWNLOAD_DIR = "/Users/kajsa/Documents/tiktok-story-skraper/stories"  # Directory to save downloaded stories
+DOWNLOAD_DIR = "stories"  # Directory to save downloaded stories
 
 
 def fetch_tiktok_stories_batch(usernames, apify_token=APIFY_API_TOKEN):
