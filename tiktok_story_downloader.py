@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 TikTok Story Downloader using Apify
-Downloads TikTok user stories via the Apify TikTok Story Viewer actor
+Downloads TikTok user stories via the Apify TikTok Story Viewer actor (BATCH OPTIMIZED)
 """
 
 import os
@@ -15,15 +15,15 @@ load_dotenv()
 
 # Configuration
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")  # Load from .env file
-DOWNLOAD_DIR = "tiktok_stories"  # Directory to save downloaded stories
+DOWNLOAD_DIR = "/Users/kajsa/Documents/tiktok-story-skraper/stories"  # Directory to save downloaded stories
 
 
-def fetch_tiktok_stories(username, apify_token=APIFY_API_TOKEN):
+def fetch_tiktok_stories_batch(usernames, apify_token=APIFY_API_TOKEN):
     """
-    Fetch TikTok stories for a given username using Apify
+    Fetch TikTok stories for MULTIPLE usernames using Apify in a single run
     
     Args:
-        username: TikTok username to fetch stories from
+        usernames: List of TikTok usernames to fetch stories from
         apify_token: Apify API token
         
     Returns:
@@ -31,12 +31,12 @@ def fetch_tiktok_stories(username, apify_token=APIFY_API_TOKEN):
     """
     client = ApifyClient(apify_token)
     
-    # Prepare the Actor input
+    # Prepare the Actor input - THIS IS THE COST SAVER (Batching)
     run_input = {
-        "uniqueIds": [username],
+        "uniqueIds": usernames,
     }
     
-    print(f"Fetching stories for @{username}...")
+    print(f"Fetching stories for {len(usernames)} users simultaneously...")
 
     # Run the Actor and wait for it to finish
     run = client.actor("igview-owner/tiktok-story-viewer").call(run_input=run_input)
@@ -46,7 +46,7 @@ def fetch_tiktok_stories(username, apify_token=APIFY_API_TOKEN):
     for item in client.dataset(run["defaultDatasetId"]).iterate_items():
         stories.append(item)
 
-    print(f"Found {len(stories)} stories")
+    print(f"Found {len(stories)} stories in total")
     return stories
 
 
@@ -86,6 +86,11 @@ def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
     filename = f"{story_id}{extension}"
     filepath = os.path.join(user_dir, filename)
 
+    # COST SAVER: Check if we already have the file
+    if os.path.exists(filepath):
+        print(f"File {filename} already exists. Skipping download.")
+        return filepath
+
     # Download the file
     print(f"Downloading {filename}...")
     try:
@@ -104,40 +109,40 @@ def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
         return None
 
 
-def download_user_stories(username, apify_token=APIFY_API_TOKEN, download_dir=DOWNLOAD_DIR):
+def process_all_users(usernames, apify_token=APIFY_API_TOKEN, download_dir=DOWNLOAD_DIR):
     """
-    Fetch and download all stories for a TikTok user
+    Fetch and download all stories for a list of TikTok users efficiently
 
     Args:
-        username: TikTok username
+        usernames: List of TikTok usernames
         apify_token: Apify API token
         download_dir: Directory to save downloads
         
     Returns:
         List of downloaded file paths
     """
-    # Fetch stories
-    stories = fetch_tiktok_stories(username, apify_token)
+    # Fetch stories for all users in ONE Apify call
+    stories = fetch_tiktok_stories_batch(usernames, apify_token)
     
     if not stories:
-        print(f"No stories found for @{username}")
+        print("No stories found for the provided users.")
         return []
 
-    # Download each story
+    # Download each story using local internet connection
     downloaded_files = []
     for story in stories:
         filepath = download_story_media(story, download_dir)
         if filepath:
             downloaded_files.append(filepath)
 
-    print(f"\n✓ Downloaded {len(downloaded_files)} stories to {download_dir}/{username}/")
+    print(f"\n✓ Finished processing. Handled {len(downloaded_files)} stories.")
     return downloaded_files
 
 
 def main():
     """Main function with example usage"""
-    # Example: Download stories from multiple users
-    usernames = ["warnerbros"]
+    # Example: Test list with 2 accounts known for posting frequently
+    usernames = ["julie__fiala", "notleahhhbeauty"]
     
     # Check if API token is set
     if not APIFY_API_TOKEN:
@@ -145,15 +150,15 @@ def main():
         print("Get your token from: https://console.apify.com/account/integrations")
         return
     
-    # Download stories for each user
-    for username in usernames:
-        print(f"\n{'='*50}")
-        print(f"Processing @{username}")
-        print('='*50)
-        try:
-            download_user_stories(username)
-        except Exception as e:
-            print(f"Error processing @{username}: {e}")
+    print(f"\n{'='*50}")
+    print(f"Starting BATCH processing for {len(usernames)} users")
+    print('='*50)
+    
+    try:
+        # We process the entire list at once instead of looping through each user
+        process_all_users(usernames)
+    except Exception as e:
+        print(f"Error processing users: {e}")
 
     print("\n✓ All done!")
 
