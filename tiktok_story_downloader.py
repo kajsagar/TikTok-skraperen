@@ -21,13 +21,6 @@ DOWNLOAD_DIR = "stories"  # Directory to save downloaded stories
 def fetch_tiktok_stories_batch(usernames, apify_token=APIFY_API_TOKEN):
     """
     Fetch TikTok stories for MULTIPLE usernames using Apify in a single run
-    
-    Args:
-        usernames: List of TikTok usernames to fetch stories from
-        apify_token: Apify API token
-        
-    Returns:
-        List of story data from Apify
     """
     client = ApifyClient(apify_token)
     
@@ -52,11 +45,7 @@ def fetch_tiktok_stories_batch(usernames, apify_token=APIFY_API_TOKEN):
 
 def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
     """
-    Download media files from story data
-
-    Args:
-        story_data: Story data from Apify containing media URLs
-        download_dir: Directory to save downloaded files
+    Download media files from story data safely handling both video and photo modes
     """
     # Create download directory if it doesn't exist
     os.makedirs(download_dir, exist_ok=True)
@@ -69,18 +58,37 @@ def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
     user_dir = os.path.join(download_dir, str(username))
     os.makedirs(user_dir, exist_ok=True)
 
-    # Get media URL from Apify response (top-level field)
-    media_url = story_data.get('video_url')
+    # --- NY LOGIKK FOR Å SKILLE MELLOM VIDEO OG BILDE (PHOTO MODE) ---
+    media_url = None
+    extension = '.mp4' # Vi antar video som standard
+    
+    # 1. Sjekk om dette er en bilde-story (Photo mode)
+    if story_data.get('imagePost') or story_data.get('images') or story_data.get('image_url'):
+        extension = '.jpg'
+        
+        # Prøv å hente ut bilde-lenken fra de ulike formatene Apify kan returnere
+        if story_data.get('image_url'):
+            media_url = story_data.get('image_url')
+        elif story_data.get('images') and isinstance(story_data['images'], list) and len(story_data['images']) > 0:
+            first_img = story_data['images'][0]
+            if isinstance(first_img, str):
+                media_url = first_img
+            elif isinstance(first_img, dict):
+                # TikTok sine komplekse bilde-strukturer
+                media_url = first_img.get('imageURL', {}).get('urlList', [None])[0] or first_img.get('url')
+    
+    # 2. Hvis det IKKE var et bilde, let etter den vanlige videoen
+    if not media_url:
+        media_url = story_data.get('video_url') or story_data.get('download_url') or story_data.get('playAddr')
+        
+    # 3. Siste sikkerhetssjekk: Hvis lenken tilfeldigvis slutter på bildeformat uansett
+    if media_url and any(ext in media_url.lower() for ext in ['.jpg', '.jpeg', '.webp', '.png']):
+        extension = '.jpg'
+    # -----------------------------------------------------------------
 
     if not media_url:
         print(f"No media URL found for story {story_id}")
         return None
-
-    # Determine file extension based on URL or default to mp4
-    if '.jpg' in media_url or '.jpeg' in media_url or '.webp' in media_url:
-        extension = '.jpg'
-    else:
-        extension = '.mp4'
 
     # Create filename
     filename = f"{story_id}{extension}"
@@ -112,23 +120,13 @@ def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
 def process_all_users(usernames, apify_token=APIFY_API_TOKEN, download_dir=DOWNLOAD_DIR):
     """
     Fetch and download all stories for a list of TikTok users efficiently
-
-    Args:
-        usernames: List of TikTok usernames
-        apify_token: Apify API token
-        download_dir: Directory to save downloads
-        
-    Returns:
-        List of downloaded file paths
     """
-    # Fetch stories for all users in ONE Apify call
     stories = fetch_tiktok_stories_batch(usernames, apify_token)
     
     if not stories:
         print("No stories found for the provided users.")
         return []
 
-    # Download each story using local internet connection
     downloaded_files = []
     for story in stories:
         filepath = download_story_media(story, download_dir)
@@ -141,13 +139,10 @@ def process_all_users(usernames, apify_token=APIFY_API_TOKEN, download_dir=DOWNL
 
 def main():
     """Main function with example usage"""
-    # Example: Test list with 2 accounts known for posting frequently
     usernames = ["julie__fiala", "notleahhhbeauty"]
     
-    # Check if API token is set
     if not APIFY_API_TOKEN:
         print("ERROR: Please set APIFY_API_TOKEN in your .env file")
-        print("Get your token from: https://console.apify.com/account/integrations")
         return
     
     print(f"\n{'='*50}")
@@ -155,7 +150,6 @@ def main():
     print('='*50)
     
     try:
-        # We process the entire list at once instead of looping through each user
         process_all_users(usernames)
     except Exception as e:
         print(f"Error processing users: {e}")
