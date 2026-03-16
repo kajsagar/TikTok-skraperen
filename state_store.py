@@ -15,12 +15,6 @@ class StateStore:
     """SQLite-based state store for tracking processed TikTok posts"""
     
     def __init__(self, db_path: str = "tiktok_state.db"):
-        """
-        Initialize the state store
-        
-        Args:
-            db_path: Path to SQLite database file
-        """
         self.db_path = db_path
         self._init_db()
     
@@ -44,7 +38,6 @@ class StateStore:
             )
         """)
         
-        # Create index for faster lookups
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_author_published 
             ON processed_posts(author, published_at DESC)
@@ -54,26 +47,14 @@ class StateStore:
         conn.close()
     
     def is_processed(self, post_id: str) -> bool:
-        """
-        Check if a post has already been processed
-        
-        Args:
-            post_id: TikTok post ID
-            
-        Returns:
-            True if post has been processed, False otherwise
-        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
         cursor.execute(
             "SELECT 1 FROM processed_posts WHERE post_id = ? LIMIT 1",
             (post_id,)
         )
-        
         result = cursor.fetchone()
         conn.close()
-        
         return result is not None
     
     def add_post(
@@ -87,22 +68,6 @@ class StateStore:
         hashtags: Optional[List[str]] = None,
         storage_url: Optional[str] = None
     ) -> bool:
-        """
-        Add a processed post to the state store
-        
-        Args:
-            post_id: TikTok post ID
-            author: TikTok username
-            published_at: Publication timestamp
-            url: TikTok URL
-            caption: Post caption
-            transcript: Video transcript/captions
-            hashtags: List of hashtags
-            storage_url: Internal storage URL (Google Drive)
-            
-        Returns:
-            True if added successfully, False if already exists
-        """
         if self.is_processed(post_id):
             return False
         
@@ -126,84 +91,46 @@ class StateStore:
                 storage_url,
                 datetime.utcnow().isoformat()
             ))
-            
             conn.commit()
             conn.close()
             return True
-            
         except sqlite3.IntegrityError:
             conn.close()
             return False
     
     def mark_slack_sent(self, post_id: str) -> bool:
-        """
-        Mark that Slack notification was sent for a post
-        
-        Args:
-            post_id: TikTok post ID
-            
-        Returns:
-            True if updated successfully
-        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
         cursor.execute(
             "UPDATE processed_posts SET slack_sent = 1 WHERE post_id = ?",
             (post_id,)
         )
-        
         updated = cursor.rowcount > 0
         conn.commit()
         conn.close()
-        
         return updated
     
     def get_post(self, post_id: str) -> Optional[Dict]:
-        """
-        Get post details from state store
-        
-        Args:
-            post_id: TikTok post ID
-            
-        Returns:
-            Dict with post details or None if not found
-        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
         cursor.execute(
             "SELECT * FROM processed_posts WHERE post_id = ?",
             (post_id,)
         )
-        
         row = cursor.fetchone()
         conn.close()
-        
         if row:
             post = dict(row)
             if post.get('hashtags'):
                 post['hashtags'] = json.loads(post['hashtags'])
             return post
-        
         return None
     
     def get_recent_posts(self, author: Optional[str] = None, limit: int = 100) -> List[Dict]:
-        """
-        Get recent processed posts
-        
-        Args:
-            author: Filter by author (optional)
-            limit: Maximum number of posts to return
-            
-        Returns:
-            List of post dictionaries
-        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
         if author:
             cursor.execute("""
                 SELECT * FROM processed_posts 
@@ -217,15 +144,55 @@ class StateStore:
                 ORDER BY published_at DESC 
                 LIMIT ?
             """, (limit,))
-        
         rows = cursor.fetchall()
         conn.close()
-        
         posts = []
         for row in rows:
             post = dict(row)
             if post.get('hashtags'):
                 post['hashtags'] = json.loads(post['hashtags'])
             posts.append(post)
-        
+        return posts
+
+    def get_posts_since(self, since: datetime, author: Optional[str] = None) -> List[Dict]:
+        """
+        Get all posts processed after a given datetime.
+        Used by the daily summary to find what was discovered the last 24 hours.
+
+        Args:
+            since: Only return posts processed after this datetime (UTC)
+            author: Optionally filter by a single author
+
+        Returns:
+            List of post dicts ordered by author, then processed_at
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        since_str = since.isoformat()
+
+        if author:
+            cursor.execute("""
+                SELECT * FROM processed_posts
+                WHERE processed_at >= ? AND author = ?
+                ORDER BY author ASC, processed_at DESC
+            """, (since_str, author))
+        else:
+            cursor.execute("""
+                SELECT * FROM processed_posts
+                WHERE processed_at >= ?
+                ORDER BY author ASC, processed_at DESC
+            """, (since_str,))
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        posts = []
+        for row in rows:
+            post = dict(row)
+            if post.get('hashtags'):
+                post['hashtags'] = json.loads(post['hashtags'])
+            posts.append(post)
+
         return posts

@@ -1,0 +1,44 @@
+name: Daily Slack Summary
+
+on:
+  schedule:
+    # 08:00 Oslo-tid (CET = UTC+1, CEST = UTC+2)
+    # Vi bruker 07:00 UTC som dekker CET (vinter).
+    # På sommertid (CEST/UTC+2) vil meldingen komme kl. 09:00.
+    # Ønsker du presis 08:00 hele året må du bytte mellom 06:00 og 07:00 UTC manuelt,
+    # eller bruke en ekstern tjeneste som støtter tidssoner.
+    - cron: '0 7 * * *'
+  workflow_dispatch:  # Kan også kjøres manuelt fra Actions-fanen
+
+jobs:
+  send-daily-summary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Hent samme state-database som skraperen bruker
+      - name: Restore state database
+        uses: actions/cache/restore@v4
+        with:
+          path: tiktok_state.db
+          key: tiktok-state-${{ runner.os }}
+          restore-keys: |
+            tiktok-state-
+
+      - name: Send daily summary to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          STATE_DB_PATH: tiktok_state.db
+        run: python daily_summary.py
