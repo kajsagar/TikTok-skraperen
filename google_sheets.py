@@ -88,7 +88,7 @@ class GoogleSheetsMonitor:
             worksheet = self._sheet.get_worksheet(0)
             
             # Get all records as dictionaries
-            records = worksheet.get_all_records()
+            records = worksheet.get_all_records(expected_headers=['Username'])
             
             # Filter and format accounts
             accounts = []
