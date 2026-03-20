@@ -37,6 +37,7 @@ def fetch_tiktok_stories_batch(usernames, apify_token=APIFY_API_TOKEN):
 def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
     """
     Download media safely by reading the file's Content-Type headers directly from the internet.
+    Handles both video stories and image-only stories (duration == 0).
     """
     os.makedirs(download_dir, exist_ok=True)
 
@@ -48,6 +49,10 @@ def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
 
     media_url = None
     is_photo = False
+
+    # Sjekk om dette er en bilde-story (duration == 0 betyr bilde, ikke video)
+    duration = story_data.get('duration', None)
+    is_image_story = duration == 0
 
     # 1. LET ETTER BILDER FØRST (Photo mode)
     if story_data.get('images') and len(story_data['images']) > 0:
@@ -61,7 +66,15 @@ def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
         media_url = story_data.get('image_url')
         is_photo = True
 
-    # 2. HVIS INGEN BILDER FANTES, FINN VIDEO
+    # 2. HVIS INGEN BILDER FANTES OG DET ER EN BILDE-STORY, BRUK COVER_URL
+    if not media_url and is_image_story:
+        cover_url = story_data.get('cover_url')
+        if cover_url:
+            print(f"📸 Bilde-story oppdaget for {story_id} – bruker cover_url")
+            media_url = cover_url
+            is_photo = True
+
+    # 3. HVIS FORTSATT INGEN URL, FINN VIDEO
     if not media_url:
         media_url = story_data.get('video_url') or story_data.get('download_url') or story_data.get('playAddr')
 
@@ -79,12 +92,22 @@ def download_story_media(story_data, download_dir=DOWNLOAD_DIR):
 
         # Hvis internett sier at dette bare er lyd (feilaktig returnert av TikTok)
         if 'audio' in content_type:
+            # For bilde-stories: prøv cover_url som fallback hvis vi ikke allerede bruker den
+            if not is_photo and story_data.get('cover_url') and media_url != story_data.get('cover_url'):
+                print(f"⚠️ Lydfil oppdaget – prøver cover_url som fallback for {story_id}")
+                story_data_copy = dict(story_data)
+                story_data_copy['duration'] = 0
+                return download_story_media(story_data_copy, download_dir)
             print(f"⚠️ Avbrutt: Fant bare en lydfil ({content_type}) for {story_id}. Hopper over!")
             return None
 
         # Sett riktig filendelse basert på ID-kortet
-        if 'image' in content_type or is_photo:
-            extension = '.jpg'
+        if 'image' in content_type or is_photo or 'webp' in content_type:
+            # Cover-bilder fra TikTok er ofte webp
+            if 'webp' in content_type or (media_url and 'webp' in media_url.lower()):
+                extension = '.webp'
+            else:
+                extension = '.jpg'
         else:
             extension = '.mp4'
 
